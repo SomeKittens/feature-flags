@@ -1,31 +1,32 @@
+mongoskin = require('mongoskin').db('localhost:27017/ff');
 var jade = require('jade');
 var fs = require('fs');
-var mongoskin = require('mongoskin').db('localhost:27017/ff');
+
+var CLIENT = __dirname.replace('bin', 'client') + '/';
 
 var helpers = require('../lib/helpers');
 var config = require('../features');
 
-var CLIENT = __dirname.replace('bin', 'client') + '/';
+var ruleCache = {};
+var locals = {};
 
-exports.router = function(req, res, next) {
+var router = function(req, res, next) {
 	var url = req.url
-		, userAuth = helpers.getUserAuth(req);
+		, userAuth = helpers.getUserAuth(req)
+		, authLevelRequired;
 		console.log(userAuth);
 		userAuth = 'admin';
 	if (/\/feature_flags.*/.test(url) && userAuth === 'admin') {
 		// it's a request for us!
 		if (url === '/feature_flags') {
-			console.log(req);
-			mongoskin.collection('urlRules').find().toArray(function(err, rules) {
-				var data = jade.renderFile(CLIENT + 'ff.jade', {
-					rules: rules,
-					levels: config.levels,
-					host: req.get('host')
-				});
-				res.writeHead(200, {'Content-Type': 'text/html', 'Content-Length': data.length});
-				res.write(data);
-				res.end();
+			var data = jade.renderFile(CLIENT + 'ff.jade', {
+				rules: ruleCache,
+				levels: config.levels,
+				host: req.get('host')
 			});
+			res.writeHead(200, {'Content-Type': 'text/html', 'Content-Length': data.length});
+			res.write(data);
+			res.end();
 		} else if (!req.xhr) {
 			// External resources for the feature_flags page
 			var filename = url.replace('/feature_flags/', '');
@@ -44,11 +45,11 @@ exports.router = function(req, res, next) {
 			console.log(req.body);
 			switch(req.body.section) {
 				case 'rule':
-					mongoskin.collection('urlRules').update({url: req.body.url}, {$set: {level: req.body.level}}, function(err) {
-						if (err) return res.end(err);
-
-						res.end();
-					});
+					ruleCache[req.body.url] = {
+						url: req.body.url,
+						level: req.body.level
+					};
+					res.end();
 					break;
 				case 'locals':
 				case 'user':
@@ -59,35 +60,31 @@ exports.router = function(req, res, next) {
 		}
 	} else {
 		// Check if the user's authorized to view this page
-		return mongoskin.collection('urlRules').findOne({ url: req.url }, function(err, rule) {
-			if (err) return next(err);
-			if (!rule) return next();
-
-			if (helpers.isAuthed(userAuth, rule.level)) {
-				return mongoskin.collection('locals').findOne({}, function(err, locals) {
-					if (err) return next(err);
-
-					res.locals._ff = locals;
-					return next();
-				});
+		authLevelRequired = helpers.matchUrl(url, ruleCache);
+		if (authLevelRequired) {
+			if (helpers.isAuthed(userAuth, authLevelRequired)) {
+				res.locals._ff = locals;
+				return next();
 			}
 			return next(new Error('Not authorized to view this URL'));
-		});
+		} else {
+			return next();
+		}
 	}
 };
 
 exports.requireLevel = function requireLevel(level, path) {
-	// We need the url here
-	helpers.insertRule(level, path);
+	// TODO: replace express syntax with Regex
+	ruleCache[path] = {
+		url: path,
+		level: level
+	};
+	console.log(ruleCache);
+	mongoskin.collection('urlRules').update({url: path}, {$set: { url: path, level: level }}, {upsert: true});
 	return path;
 };
 
-exports.init = function(app) {/*
-	console.log(app.routes.get[0]);
-	console.log('hya');
-	app.routes.get.forEach(function(route) {
-		route.callbacks.forEach(function(callback) {
-			console.log(callback.toString());
-		});
-	});*/
+exports.init = function() {
+	// Pull the defaults from the database?
+	return router;
 };
