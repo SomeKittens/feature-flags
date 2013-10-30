@@ -23,19 +23,30 @@ html(lang="en")
 								else
 									option(value="#{level}") #{level}
 						br
-					script(type="text/javascript").
-						// TODO: debounce
-						$('select').on('change', function(e) {
-							var $this = $(this);
-							$.post('feature_flags/newLevel', {
-									url: $this.attr('name'),
-									level: $(this).find(':selected').text(),
-									section: 'rule'
-							}, function(data) {
-								console.log(data);
-							});
-							console.log($(this).find(':selected').text());
-						})
+					h3 Locals
+					each local in locals
+						a(href="#{local.url}") #{host}#{local.url} 
+						select(name="#{local.url}")
+							each level in levels
+								if level === local.level
+									option(value="#{level}", selected) #{level}
+								else
+									option(value="#{level}") #{level}
+						br
+		script(type="text/javascript").
+			// TODO: debounce
+			$('select').on('change', function(e) {
+				var $this = $(this);
+				$.post('feature_flags/newLevel', {
+						url: $this.attr('name'),
+						level: $(this).find(':selected').text(),
+						section: 'rule'
+				}, function(data) {
+					console.log(data);
+				});
+				console.log($(this).find(':selected').text());
+			})
+
 				//
 					.make-switch
 						input(type="checkbox")

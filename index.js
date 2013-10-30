@@ -1,1 +1,1 @@
-module.exports = require('./bin/feature-flags');
+module.exports = require('./lib/feature-flags');

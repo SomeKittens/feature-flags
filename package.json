@@ -1,8 +1,21 @@
 {
   "name": "feature-flags",
-  "version": "0.0.1",
-  "scripts": {
-    "start": "node app"
+  "version": "0.0.2",
+  "author": "Randall 'SomeKittens' Koutnik <rkoutnik@gmail.com>",
+  "description": "Access control for express-based node apps",
+  "main": "lib/feature-flags",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SomeKittens/feature-flags"
+  },
+  "keywords": [
+    "Feature Flags",
+    "access control",
+    "flags"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=0.8.6"
   },
   "dependencies": {
 		"mongoskin": "0.6.x",
